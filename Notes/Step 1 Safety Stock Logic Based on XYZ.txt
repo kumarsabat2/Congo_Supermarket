@@ -1,0 +1,149 @@
+Step 1: Safety Stock Logic Based on XYZ
+
+Safety stock depends on variability.
+
+For each SKU:
+
+𝑆
+𝑎
+𝑓
+𝑒
+𝑡
+𝑦
+
+𝑆
+𝑡
+𝑜
+𝑐
+𝑘
+=
+𝑍
+×
+𝜎
+𝑑
+𝑒
+𝑚
+𝑎
+𝑛
+𝑑
+×
+𝐿
+𝑒
+𝑎
+𝑑
+
+𝑇
+𝑖
+𝑚
+𝑒
+Safety Stock=Z×σ
+d
+	​
+
+emand×
+Lead Time
+	​
+
+
+Where:
+
+σ = std_demand (already calculated)
+
+Z value depends on service level
+
+Lead Time = assume configurable (e.g., 5 days for now)
+
+We assign Z-score based on ABC–XYZ.
+
+Example:
+
+Segment	Service Level	Z-score
+AX	99%	2.33
+AY	97%	1.88
+AZ	99%	2.33
+BX	95%	1.65
+BY	94%	1.55
+BZ	95%	1.65
+CX	90%	1.28
+CY	88%	1.18
+CZ	85%	1.04
+🚀 Why This Is Smart
+
+This directly converts classification into:
+
+Reorder point
+
+Buffer stock
+
+Stockout risk
+
+Inventory investment control
+
+This is where clients see value.
+
+
+Safety Stock Formula
+
+We use:
+
+𝑆
+𝑎
+𝑓
+𝑒
+𝑡
+𝑦
+
+𝑆
+𝑡
+𝑜
+𝑐
+𝑘
+=
+𝑍
+×
+𝜎
+𝑑
+𝑒
+𝑚
+𝑎
+𝑛
+𝑑
+×
+𝐿
+𝑒
+𝑎
+𝑑
+
+𝑇
+𝑖
+𝑚
+𝑒
+Safety Stock=Z×σ
+d
+	​
+
+emand×
+Lead Time
+	​
+
+
+Where:
+
+σ = std_demand (already stored)
+
+Lead Time = 5
+
+Z-score depends on ABC–XYZ segment
+
+🔥 Z-score Mapping (Simplified Version)
+
+We define:
+
+Segment Type	Z
+A	2.05
+B	1.65
+C	1.28
+
+To keep POC simple, we base service level only on ABC for now.
+
+Later we can refine using full matrix.

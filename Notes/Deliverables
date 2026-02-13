@@ -41,3 +41,32 @@ Or build dynamic lead-time predictor later
 🔹 stock file contains:
 
 Summarized Opening / IN / OUT / Closing for a period
+
+identified from current data
+| Segment | Count | Meaning                           |
+| ------- | ----- | --------------------------------- |
+| AX      | 499   | High value + Stable → Gold SKUs   |
+| AY      | 683   | High value + Moderate variability |
+| AZ      | 32    | High value + Highly erratic ⚠     |
+| BX      | 746   | Medium value + Stable             |
+| BY      | 973   | Medium + Moderate                 |
+| BZ      | 78    | Medium + Erratic                  |
+| CX      | 1363  | Low value + Stable                |
+| CY      | 655   | Low + Moderate                    |
+| CZ      | 525   | Low + Highly erratic              |
+
+
+Define Replenishment Strategy per Segment
+
+Here is recommended industry policy:
+
+Segment	Service Level	Safety Stock	Forecast Model
+AX	98–99%	Low	Prophet
+AY	97%	Moderate	Prophet
+AZ	99%	High	Scenario-based
+BX	95%	Low	Prophet
+BY	94%	Moderate	Prophet
+BZ	95%	High	Croston
+CX	90%	Minimal	Moving Avg
+CY	88%	Low	Moving Avg
+CZ	85%	Very Low	Order on demand

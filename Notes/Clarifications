@@ -1,0 +1,41 @@
+Clarification Message (You Can Send)
+
+We need confirmation regarding stock structure.
+
+In the stock summary file:
+
+SN0001, SN0002, SN0003 appear in Warehouse Name column.
+
+We also see “CENTRAL WAREHOUSE”.
+
+Kindly confirm:
+
+Are SN0001, SN0002, SN0003 stores or warehouses?
+
+Is CENTRAL WAREHOUSE the main supply warehouse?
+
+What is the inventory flow structure? (Central → Stores or independent stock?)
+
+Why This Is Critical
+
+ABC–XYZ + Reorder logic depends on:
+
+Where replenishment originates
+
+Where stock is stored
+
+Whether inter-warehouse transfer exists
+
+Wrong assumption = wrong model.
+
+Important Reality Check
+
+For Prophet or any ML forecasting:
+
+30 days is very small
+
+Seasonality cannot be learned
+
+Weekly pattern can be partially learned
+
+Yearly seasonality impossible
