@@ -1,0 +1,43 @@
+📌 System Must Deliver:
+
+SKU-level daily demand forecast (next 30 days)
+
+Warehouse-level projected inventory
+
+Predicted stockout date per SKU per warehouse
+
+Reorder recommendation (quantity + date)
+
+Risk score (Low / Medium / High)
+
+🔹 Key Design Decision
+
+We will:
+
+Forecast at Branch SKU level
+
+Aggregate to warehouse level
+
+Run stock simulation at warehouse level
+
+This avoids double-counting and keeps system scalable.
+
+🔹 Lead Time Issue (Important)
+
+Since lead time:
+
+Not available
+
+Variable due to external factors
+
+We will later:
+
+Estimate lead time from historical inward entries
+
+Or simulate lead time scenarios (e.g., 3 / 5 / 7 days)
+
+Or build dynamic lead-time predictor later
+
+🔹 stock file contains:
+
+Summarized Opening / IN / OUT / Closing for a period
