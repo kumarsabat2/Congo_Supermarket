@@ -1,0 +1,80 @@
+HO Inventory Planning Dashboard
+
+This dashboard ensures HO always maintains 45-day stock coverage and highlights products that require replenishment from Central or purchase from supplier.”
+
+🎯 Purpose of the Dashboard
+
+This dashboard helps HO store decide:
+
+Which products need replenishment
+
+How much quantity to request from Central Warehouse
+
+Whether Central has enough stock
+
+If Central needs to purchase from supplier
+
+It is a 2-level inventory planning system.
+
+📊 What Data We Used
+
+From your shared files:
+
+1️⃣ Stock Summary File (Oct 1 – Nov 30)
+
+We used:
+
+Sales Out Qty
+
+Other Out Qty
+
+Closing Qty
+
+For HO store only.
+
+2️⃣ Central Warehouse Stock
+
+From stock snapshot:
+
+Current closing stock at Central Warehouse
+
+🧮 Core Business Logic Explained (Non-Technical)
+
+For each product:
+
+Step 1️⃣ — Calculate Daily Consumption
+
+We calculate:
+
+Total Sales in 61 days ÷ 61
+
+
+This gives:
+
+👉 Average Daily Sales
+
+Step 2️⃣ — Calculate Future Requirement
+
+We project:
+
+Average Daily Sales × 45 days
+
+
+This gives:
+
+👉 Expected demand for next 45 days
+
+Step 3️⃣ — Calculate Reorder Quantity (HO Level)
+
+We compare:
+
+45-day Requirement − Current HO Stock
+
+
+If result is positive:
+
+👉 HO needs to request that quantity from Central.
+
+If result is zero or negative:
+
+👉 No order required.
