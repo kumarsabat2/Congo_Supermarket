@@ -18,24 +18,40 @@ st.markdown(
     """
     <style>
         .stApp {
-            background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
-            color: #e5e7eb;
+            background-image: linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.9)),
+                              url("https://images.unsplash.com/photo-1604719312566-8912e9c8a213?auto=format&fit=crop&w=1800&q=80");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            color: #111827;
         }
         .main-title {
             text-align: center;
-            color: #f8fafc;
-            margin-bottom: 0.5rem;
+            color: #0f172a;
+            margin-bottom: 0.35rem;
+            font-weight: 700;
         }
         .subtitle {
             text-align: center;
-            color: #94a3b8;
+            color: #334155;
             margin-bottom: 1.5rem;
         }
         .metric-card {
-            background: rgba(17, 24, 39, 0.7);
-            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: rgba(255, 255, 255, 0.86);
+            border: 1px solid rgba(15, 23, 42, 0.12);
             border-radius: 14px;
             padding: 12px 16px;
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+        }
+        section[data-testid="stSidebar"] {
+            background: rgba(255, 255, 255, 0.96);
+            border-right: 1px solid rgba(15, 23, 42, 0.1);
+        }
+        section[data-testid="stSidebar"] * {
+            color: #0f172a !important;
+        }
+        label, .stMetricLabel, .stMarkdown, .stSubheader, .stCaption {
+            color: #0f172a !important;
         }
     </style>
     """,
@@ -289,7 +305,7 @@ fig = px.bar(
     x="part_no",
     y="ho_order_qty",
     color="ho_order_qty",
-    template="plotly_dark",
+    template="plotly_white",
 )
 fig.update_layout(margin=dict(l=10, r=10, t=20, b=10), height=380)
 st.plotly_chart(fig, use_container_width=True)
