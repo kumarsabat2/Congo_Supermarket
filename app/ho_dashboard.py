@@ -75,6 +75,12 @@ min_order_filter = st.sidebar.number_input("Minimum Order Qty Filter", value=0)
 sku_search = st.sidebar.text_input("Search SKU")
 run_button = st.sidebar.button("Run Planning")
 
+if "run_planning" not in st.session_state:
+    st.session_state.run_planning = False
+
+if run_button:
+    st.session_state.run_planning = True
+
 # ---------------------------------------------------
 # SQL Query Function
 # ---------------------------------------------------
@@ -153,7 +159,7 @@ def load_data(period_days, planning_days):
 # ---------------------------------------------------
 # Run Planning
 # ---------------------------------------------------
-if run_button:
+if st.session_state.run_planning:
 
     df = load_data(period_days, planning_days)
 
