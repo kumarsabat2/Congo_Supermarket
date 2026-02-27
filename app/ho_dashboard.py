@@ -87,6 +87,12 @@ if "run" not in st.session_state:
 
 run_button = st.sidebar.button("Run Planning")
 
+if "run_planning" not in st.session_state:
+    st.session_state.run_planning = False
+
+if run_button:
+    st.session_state.run_planning = True
+
 # ---------------------------------------------------
 # Initialize Session State
 # ---------------------------------------------------
@@ -221,7 +227,7 @@ def load_data(period_days, planning_days):
 # ---------------------------------------------------
 # Run Planning
 # ---------------------------------------------------
-if run_button:
+if st.session_state.run_planning:
 
     df = load_data(period_days, planning_days)
 
