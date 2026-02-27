@@ -1,36 +1,71 @@
 import streamlit as st
 import pandas as pd
 import pyodbc
-import base64
 import plotly.express as px
 from io import BytesIO
+from datetime import datetime
 
 # ---------------------------------------------------
-# Page Config
+# Page Config + Theme
 # ---------------------------------------------------
-st.set_page_config(layout="wide")
-# ---------------------------------------------------
-# Initialize Session State
-# ---------------------------------------------------
-if "run" not in st.session_state:
-    st.session_state.run = False
+st.set_page_config(
+    page_title="HO Inventory Planning Dashboard",
+    page_icon="🏬",
+    layout="wide",
+)
 
-if "df" not in st.session_state:
-    st.session_state.df = None
-# ---------------------------------------------------
-# Black Theme Styling
-# ---------------------------------------------------
-st.markdown("""
+st.markdown(
+    """
     <style>
         .stApp {
-            background-color: #111111;
-            color: white;
+            background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
+            color: #e5e7eb;
         }
-        h1, h2, h3, h4 {
-            color: white;
+        .main-title {
+            text-align: center;
+            color: #f8fafc;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 1.5rem;
+        }
+        .metric-card {
+            background: rgba(17, 24, 39, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 14px;
+            padding: 12px 16px;
         }
     </style>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown("<h1 class='main-title'>🏬 HO Inventory Planning Dashboard</h1>", unsafe_allow_html=True)
+st.markdown(
+    "<p class='subtitle'>Real-time style planning with cached data and fast filter interactions.</p>",
+    unsafe_allow_html=True,
+)
+
+# ---------------------------------------------------
+# Session State
+# ---------------------------------------------------
+if "raw_df" not in st.session_state:
+    st.session_state.raw_df = None
+if "last_refresh" not in st.session_state:
+    st.session_state.last_refresh = None
+if "filters" not in st.session_state:
+    st.session_state.filters = {
+        "department": [],
+        "sub_department": [],
+        "abc_class": [],
+        "xyz_class": [],
+        "segment": [],
+        "sku_search": "",
+        "min_order": 0,
+    }
+
 
 # ---------------------------------------------------
 # Database Connection
@@ -43,68 +78,12 @@ def get_connection():
         "Trusted_Connection=yes;"
     )
 
-# ---------------------------------------------------
-# Background (30% Visibility)
-# ---------------------------------------------------
-def set_background(image_file):
-    with open(image_file, "rb") as file:
-        encoded = base64.b64encode(file.read()).decode()
-
-    page_bg_img = f"""
-    <style>
-    .stApp {{
-        background: linear-gradient(rgba(255,255,255,0.5),
-                                     rgba(255,255,255,0.5)),
-                    url("data:image/webp;base64,{encoded}");
-        background-size: cover;
-        background-attachment: fixed;
-    }}
-    </style>
-    """
-    st.markdown(page_bg_img, unsafe_allow_html=True)
-
-set_background("app/assets/OIP.webp")
-
-st.markdown("""
-    <h1 style='text-align: center; color: black;'>
-    🏬 HO Inventory Planning Dashboard
-    </h1>
-""", unsafe_allow_html=True)
 
 # ---------------------------------------------------
-# Sidebar Controls
+# SQL Query Function (cached)
 # ---------------------------------------------------
-st.sidebar.header("Planning Controls")
-
-period_days = st.sidebar.number_input("Historical Period Days", value=61)
-planning_days = st.sidebar.number_input("Planning Days", value=45)
-min_order_filter = st.sidebar.number_input("Minimum Order Qty Filter", value=0)
-sku_search = st.sidebar.text_input("Search SKU")
-
-# Only run planning when button is clicked for the FIRST time
-if "run" not in st.session_state:
-    st.session_state.run = False
-
-run_button = st.sidebar.button("Run Planning")
-
-if "run_planning" not in st.session_state:
-    st.session_state.run_planning = False
-
-if run_button:
-    st.session_state.run_planning = True
-
-# ---------------------------------------------------
-# Initialize Session State
-# ---------------------------------------------------
-if "run" not in st.session_state:
-    st.session_state.run = False
-
-if "df" not in st.session_state:
-    st.session_state.df = None
-# ---------------------------------------------------
-# SQL Query Function
-# ---------------------------------------------------
-def load_data(period_days, planning_days):
+@st.cache_data(ttl=300, show_spinner=False)
+def load_data(period_days: int, planning_days: int) -> pd.DataFrame:
     query = f"""
     WITH ho_data AS (
         SELECT
@@ -146,71 +125,42 @@ def load_data(period_days, planning_days):
     SELECT
         hr.part_no,
         hr.item_name,
-
-        -- Department Mapping
         CASE
-            WHEN hr.stock_category IN ('FRUITS VEGETABLES','FRUITS & VEGETABLES IMPORTATION','BAKERY & PATISSERIE','CHARCUTERIE','BOUCHERIE','YOGHURT','MILK')
-                THEN 'Fresh Food'
-            WHEN hr.stock_category IN ('FROZEN','FRIGO')
-                THEN 'Frozen Foods'
-            WHEN hr.stock_category IN ('RICE & FLOUR','SAUCES','CANNED FOOD','JAM & SPREAD','BREAKFAST','DRY FRUITS','PASTA','HERBS & SPICES')
-                THEN 'Grocery'
-            WHEN hr.stock_category IN ('BISCUIT','CHIPS AND NAMKEEN','COLD DRINK WATER JUICE','NON ALCOHOLIC DRINKS',
-                                      'ENERGY DRINKS','CHOCOLATES','TEA & COFFEE','HEALTH DRINKS')
-                THEN 'Snacks & Beverages'
-            WHEN hr.stock_category IN ('BABY CARE','BABY FOOD')
-                THEN 'Baby Products'
-            WHEN hr.stock_category IN ('PERSONAL CARE','LADIES GROOMING','MENS GROOMING','HAIR AND CARE','ORAL CARE',
-                                      'BATH & ACCESSORIES','DEODORANTS & PERFUMES')
-                THEN 'Personal Care'
-            WHEN hr.stock_category IN ('HOUSEHOLD CLEANING','HOUSEHOLD','DETERGENT & POWDER')
-                THEN 'Home Care'
-            WHEN hr.stock_category IN ('HOME DECOR','GLASSWARE','KITCHEN AND CROCKERY','TRAVEL & ACCESSORIES','PARTY & DECORATIONS','ELECTRONICS')
-                THEN 'Home & Kitchen'
-            WHEN hr.stock_category IN ('STATIONARY','SEASONAL STATIONERY')
-                THEN 'Stationery'
-            WHEN hr.stock_category = 'PET FOOD'
-                THEN 'Pet Care'
-            WHEN hr.stock_category = 'BARBECUE AND GRILL'
-                THEN 'BBQ & Grill'
+            WHEN hr.stock_category IN ('FRUITS VEGETABLES','FRUITS & VEGETABLES IMPORTATION','BAKERY & PATISSERIE','CHARCUTERIE','BOUCHERIE','YOGHURT','MILK') THEN 'Fresh Food'
+            WHEN hr.stock_category IN ('FROZEN','FRIGO') THEN 'Frozen Foods'
+            WHEN hr.stock_category IN ('RICE & FLOUR','SAUCES','CANNED FOOD','JAM & SPREAD','BREAKFAST','DRY FRUITS','PASTA','HERBS & SPICES') THEN 'Grocery'
+            WHEN hr.stock_category IN ('BISCUIT','CHIPS AND NAMKEEN','COLD DRINK WATER JUICE','NON ALCOHOLIC DRINKS','ENERGY DRINKS','CHOCOLATES','TEA & COFFEE','HEALTH DRINKS') THEN 'Snacks & Beverages'
+            WHEN hr.stock_category IN ('BABY CARE','BABY FOOD') THEN 'Baby Products'
+            WHEN hr.stock_category IN ('PERSONAL CARE','LADIES GROOMING','MENS GROOMING','HAIR AND CARE','ORAL CARE','BATH & ACCESSORIES','DEODORANTS & PERFUMES') THEN 'Personal Care'
+            WHEN hr.stock_category IN ('HOUSEHOLD CLEANING','HOUSEHOLD','DETERGENT & POWDER') THEN 'Home Care'
+            WHEN hr.stock_category IN ('HOME DECOR','GLASSWARE','KITCHEN AND CROCKERY','TRAVEL & ACCESSORIES','PARTY & DECORATIONS','ELECTRONICS') THEN 'Home & Kitchen'
+            WHEN hr.stock_category IN ('STATIONARY','SEASONAL STATIONERY') THEN 'Stationery'
+            WHEN hr.stock_category = 'PET FOOD' THEN 'Pet Care'
+            WHEN hr.stock_category = 'BARBECUE AND GRILL' THEN 'BBQ & Grill'
             ELSE 'Other'
         END AS department,
-
         hr.stock_category AS sub_department,
-
-        -- Sales & Loss
         hr.total_sales_qty,
         hr.total_loss_qty,
         hr.total_consumption,
-
-        -- HO Stock & Requirement
         hr.ho_current_stock,
         hr.ho_order_qty,
-
-        CASE 
+        CASE
             WHEN hr.ho_order_qty > 0 THEN 'REORDER_REQUIRED'
             ELSE 'SUFFICIENT_STOCK'
         END AS ho_status,
-
-        -- Central Stock
         ISNULL(cs.central_current_stock,0) AS central_current_stock,
-
         CASE
-            WHEN (ISNULL(cs.central_current_stock,0) - hr.ho_order_qty) < 0
-                THEN ABS(ISNULL(cs.central_current_stock,0) - hr.ho_order_qty)
+            WHEN (ISNULL(cs.central_current_stock,0) - hr.ho_order_qty) < 0 THEN ABS(ISNULL(cs.central_current_stock,0) - hr.ho_order_qty)
             ELSE 0
         END AS central_purchase_qty,
-
         CASE
-            WHEN (ISNULL(cs.central_current_stock,0) - hr.ho_order_qty) < 0
-                THEN 'PURCHASE_REQUIRED'
+            WHEN (ISNULL(cs.central_current_stock,0) - hr.ho_order_qty) < 0 THEN 'PURCHASE_REQUIRED'
             ELSE 'CENTRAL_SUFFICIENT'
         END AS central_status,
-
         seg.abc_class,
         seg.xyz_class,
         seg.segment AS abc_xyz_segment
-
     FROM ho_requirement hr
     LEFT JOIN central_stock cs ON hr.part_no = cs.part_no
     LEFT JOIN abc_xyz_segments seg ON hr.part_no = seg.part_no
@@ -218,170 +168,163 @@ def load_data(period_days, planning_days):
     ORDER BY hr.ho_order_qty DESC
     """
 
-    conn = get_connection()
-    df = pd.read_sql(query, conn)
-    conn.close()
-    return df
+    with get_connection() as conn:
+        return pd.read_sql(query, conn)
 
 
 # ---------------------------------------------------
-# Run Planning
+# Sidebar Controls
 # ---------------------------------------------------
-if st.session_state.run_planning:
+st.sidebar.header("Planning Controls")
+period_days = st.sidebar.number_input("Historical Period Days", min_value=1, value=61)
+planning_days = st.sidebar.number_input("Planning Days", min_value=1, value=45)
 
-    df = load_data(period_days, planning_days)
+refresh_clicked = st.sidebar.button("Run / Refresh Planning", type="primary")
 
-    # ----------------------------
-    # DYNAMIC FILTERS (AFTER df load)
-    # ----------------------------
-    st.sidebar.subheader("Filters")
+if refresh_clicked:
+    with st.spinner("Fetching latest planning data..."):
+        st.session_state.raw_df = load_data(period_days, planning_days)
+    st.session_state.last_refresh = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # Department Filter
-    department_list = sorted(df["department"].dropna().unique())
-    selected_departments = st.sidebar.multiselect(
+if st.session_state.raw_df is None:
+    st.info("Click **Run / Refresh Planning** to load data.")
+    st.stop()
+
+if st.session_state.last_refresh:
+    st.caption(f"Last refreshed: {st.session_state.last_refresh}")
+
+
+# ---------------------------------------------------
+# Filter Form (applies once on submit, avoids rerun-heavy UX)
+# ---------------------------------------------------
+df = st.session_state.raw_df.copy()
+
+with st.sidebar.form("filters_form"):
+    st.subheader("Filters")
+
+    selected_departments = st.multiselect(
         "Department",
-        department_list
+        sorted(df["department"].dropna().unique()),
+        default=st.session_state.filters["department"],
     )
-
-    if selected_departments:
-        df = df[df["department"].isin(selected_departments)]
-
-    # Sub-Department Filter
-    subdept_list = sorted(df["sub_department"].dropna().unique())
-    selected_subdept = st.sidebar.multiselect(
+    selected_subdept = st.multiselect(
         "Sub Department",
-        subdept_list
+        sorted(df["sub_department"].dropna().unique()),
+        default=st.session_state.filters["sub_department"],
     )
-
-    if selected_subdept:
-        df = df[df["sub_department"].isin(selected_subdept)]
-
-    # ABC Filter
-    abc_list = ["A", "B", "C"]
-    selected_abc = st.sidebar.multiselect("ABC Class", abc_list)
-
-    if selected_abc:
-        df = df[df["abc_class"].isin(selected_abc)]
-
-    # XYZ Filter
-    xyz_list = ["X", "Y", "Z"]
-    selected_xyz = st.sidebar.multiselect("XYZ Class", xyz_list)
-
-    if selected_xyz:
-        df = df[df["xyz_class"].isin(selected_xyz)]
-
-    # Segment Filter
-    segment_list = sorted(df["abc_xyz_segment"].dropna().unique())
-    selected_segments = st.sidebar.multiselect(
+    selected_abc = st.multiselect(
+        "ABC Class",
+        ["A", "B", "C"],
+        default=st.session_state.filters["abc_class"],
+    )
+    selected_xyz = st.multiselect(
+        "XYZ Class",
+        ["X", "Y", "Z"],
+        default=st.session_state.filters["xyz_class"],
+    )
+    selected_segments = st.multiselect(
         "Segment (ABC-XYZ)",
-        segment_list
+        sorted(df["abc_xyz_segment"].dropna().unique()),
+        default=st.session_state.filters["segment"],
+    )
+    sku_search = st.text_input("Search SKU", value=st.session_state.filters["sku_search"])
+    min_order_filter = st.number_input(
+        "Minimum Order Qty Filter",
+        min_value=0,
+        value=int(st.session_state.filters["min_order"]),
     )
 
-    if selected_segments:
-        df = df[df["abc_xyz_segment"].isin(selected_segments)]
+    apply_filters = st.form_submit_button("Apply Filters")
 
-    if sku_search:
-        df = df[df["part_no"].str.contains(sku_search, case=False)]
+if apply_filters:
+    st.session_state.filters = {
+        "department": selected_departments,
+        "sub_department": selected_subdept,
+        "abc_class": selected_abc,
+        "xyz_class": selected_xyz,
+        "segment": selected_segments,
+        "sku_search": sku_search,
+        "min_order": min_order_filter,
+    }
 
-    df = df[df["ho_order_qty"] >= min_order_filter]
+filters = st.session_state.filters
 
-    # ---------------- Metrics ----------------
-    col1, col2, col3 = st.columns(3)
-    col1.metric("SKUs Needing Reorder", len(df))
-    col2.metric("Total HO Order Qty", int(df["ho_order_qty"].sum()))
-    col3.metric("Central Purchase Required", int(df["central_purchase_qty"].sum()))
+if filters["department"]:
+    df = df[df["department"].isin(filters["department"])]
+if filters["sub_department"]:
+    df = df[df["sub_department"].isin(filters["sub_department"])]
+if filters["abc_class"]:
+    df = df[df["abc_class"].isin(filters["abc_class"])]
+if filters["xyz_class"]:
+    df = df[df["xyz_class"].isin(filters["xyz_class"])]
+if filters["segment"]:
+    df = df[df["abc_xyz_segment"].isin(filters["segment"])]
+if filters["sku_search"]:
+    df = df[df["part_no"].astype(str).str.contains(filters["sku_search"], case=False, na=False)]
 
-    # ---------------- Top 10 Chart ----------------
-    st.subheader("Top 10 Risk SKUs")
-    top10 = df.sort_values("ho_order_qty", ascending=False).head(10)
+df = df[df["ho_order_qty"] >= filters["min_order"]]
 
-    fig = px.bar(
-        top10,
-        x="part_no",
-        y="ho_order_qty",
-        color="ho_order_qty",
-        template="plotly_dark"
-    )
 
-    st.plotly_chart(fig, use_container_width=True)
+# ---------------------------------------------------
+# Dashboard Components
+# ---------------------------------------------------
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+    st.metric("SKUs Needing Reorder", len(df))
+    st.markdown("</div>", unsafe_allow_html=True)
+with col2:
+    st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+    st.metric("Total HO Order Qty", int(df["ho_order_qty"].sum()))
+    st.markdown("</div>", unsafe_allow_html=True)
+with col3:
+    st.markdown("<div class='metric-card'>", unsafe_allow_html=True)
+    st.metric("Central Purchase Required", int(df["central_purchase_qty"].sum()))
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------------- Status Coloring ----------------
-    def highlight_status(val):
-        if val == "REORDER_REQUIRED":
-            return "background-color: #ff4d4d; color: white;"
-        elif val == "PURCHASE_REQUIRED":
-            return "background-color: #ff9900; color: white;"
-        elif val == "CENTRAL_SUFFICIENT":
-            return "background-color: #4CAF50; color: white;"
-        return ""
+st.subheader("Top 10 Risk SKUs")
+top10 = df.sort_values("ho_order_qty", ascending=False).head(10)
+fig = px.bar(
+    top10,
+    x="part_no",
+    y="ho_order_qty",
+    color="ho_order_qty",
+    template="plotly_dark",
+)
+fig.update_layout(margin=dict(l=10, r=10, t=20, b=10), height=380)
+st.plotly_chart(fig, use_container_width=True)
 
-    styled_df = df.style.applymap(
-        highlight_status,
-        subset=["ho_status", "central_status"]
-    )
 
-    # ---------------- Table ----------------
-    st.subheader("Detailed Replenishment Plan")
-    st.dataframe(styled_df, use_container_width=True)
+# ---------------------------------------------------
+# Table + Export
+# ---------------------------------------------------
+def highlight_status(val):
+    if val == "REORDER_REQUIRED":
+        return "background-color: #ef4444; color: white;"
+    if val == "PURCHASE_REQUIRED":
+        return "background-color: #f59e0b; color: white;"
+    if val == "CENTRAL_SUFFICIENT":
+        return "background-color: #22c55e; color: white;"
+    return ""
 
-    # ---------------- Excel Export ----------------
-    def convert_df_to_excel(df):
-        output = BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Replenishment')
-        return output.getvalue()
 
-    excel_data = convert_df_to_excel(df)
+styled_df = df.style.applymap(highlight_status, subset=["ho_status", "central_status"])
 
-    st.download_button(
-        label="📥 Download Excel Report",
-        data=excel_data,
-        file_name="HO_Replenishment_Report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+st.subheader("Detailed Replenishment Plan")
+st.dataframe(styled_df, use_container_width=True, height=430)
 
-if st.session_state.run and st.session_state.df is not None:
 
-    df = st.session_state.df
-    filtered_df = df.copy()
+def convert_df_to_excel(source_df: pd.DataFrame) -> bytes:
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        source_df.to_excel(writer, index=False, sheet_name="Replenishment")
+    return output.getvalue()
 
-    st.sidebar.subheader("Filters")
 
-    # Department Filter
-    dept_list = sorted(df["department"].dropna().unique())
-    selected_depts = st.sidebar.multiselect("Department", dept_list)
-
-    if selected_depts:
-        filtered_df = filtered_df[filtered_df["department"].isin(selected_depts)]
-
-    # Sub Department Filter
-    sub_list = sorted(filtered_df["sub_department"].dropna().unique())
-    selected_sub = st.sidebar.multiselect("Sub Department", sub_list)
-
-    if selected_sub:
-        filtered_df = filtered_df[filtered_df["sub_department"].isin(selected_sub)]
-
-    # ABC Filter
-    abc_list = ["A", "B", "C"]
-    selected_abc = st.sidebar.multiselect("ABC Class", abc_list)
-    if selected_abc:
-        filtered_df = filtered_df[filtered_df["abc_class"].isin(selected_abc)]
-
-    # XYZ Filter
-    xyz_list = ["X", "Y", "Z"]
-    selected_xyz = st.sidebar.multiselect("XYZ Class", xyz_list)
-    if selected_xyz:
-        filtered_df = filtered_df[filtered_df["xyz_class"].isin(selected_xyz)]
-
-    # Segment Filter
-    seg_list = sorted(filtered_df["abc_xyz_segment"].dropna().unique())
-    selected_seg = st.sidebar.multiselect("Segment (ABC-XYZ)", seg_list)
-    if selected_seg:
-        filtered_df = filtered_df[filtered_df["abc_xyz_segment"].isin(selected_seg)]
-
-    # SKU Search
-    if sku_search:
-        filtered_df = filtered_df[filtered_df["part_no"].str.contains(sku_search, case=False)]
-
-    # Minimum order filter
-    filtered_df = filtered_df[filtered_df["ho_order_qty"] >= min_order_filter]
+excel_data = convert_df_to_excel(df)
+st.download_button(
+    label="📥 Download Excel Report",
+    data=excel_data,
+    file_name="HO_Replenishment_Report.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
